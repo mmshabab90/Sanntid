@@ -3,7 +3,12 @@ package elevio
 import "time"
 import "sync"
 import "net"
-import "fmt"
+import (
+	"fmt"
+	"io"
+	"log"
+	"os"
+)
 
 
 
@@ -54,7 +59,37 @@ func Init(addr string, numFloors int) {
 	_initialized = true
 }
 
-func Init(buttonEventChan chan<- ButtonEvent, sensorEventChan chan<- int, stopButtonChan chan<- bool) {
+func init()  {
+	err := io.Init()
+
+	if err != nil {
+		log.Fatal(err)
+		os.Exit(1)
+	}
+
+	SetStopLamp(false)
+	SetDoorOpenLamp(false)
+	clearButtonLamps()
+
+	SetMotorDirection(MD_Down)
+
+	timeout := time.After(10 * time.Second)
+
+	for getFloor() == -1 {
+		select {
+		case <- timeout:
+			log.Fatal("Timeout in driver! Did not get to valid floor in time")
+			os.Exit(1)
+		default:
+		}
+	}
+
+	SetFloorIndicator(getFloor())
+	SetMotorDirection(MD_Stop)
+
+}
+
+func pollInit(buttonEventChan chan<- ButtonEvent, sensorEventChan chan<- int, stopButtonChan chan<- bool) {
 	go PollFloorSensor(sensorEventChan)
 	go PollButtons(buttonEventChan)
 	go PollStopButton(stopButtonChan)
